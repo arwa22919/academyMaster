@@ -44,8 +44,8 @@ export function requireRole(roles: string[]) {
 }
 
 export async function setupAuth(app: Express) {
-  const ADMIN_USERNAME = "admin";
-  const ADMIN_PASSWORD = "maged";
+  const ADMIN_USERNAME = process.env.ADMIN_USERNAME
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 
   try {
     const existingAdmins = await db.select().from(users).where(eq(users.username, ADMIN_USERNAME));
