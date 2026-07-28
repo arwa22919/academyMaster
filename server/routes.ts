@@ -13,6 +13,7 @@ import { requireRole } from "./auth";
 
 // File signature validation (Magic Bytes)
 function validateFileSignature(filePath: string): boolean {
+  
   try {
     const fd = fs.openSync(filePath, 'r');
     const buffer = Buffer.alloc(4);
