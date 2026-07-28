@@ -73,7 +73,7 @@ export default function AddAdditionalPaymentModal({
   const calculateRemainingBalance = () => {
     if (!player || !playerPayments) return 0;
     
-    const subscriptionFee = parseFloat(player.monthlySubscriptionFee || "0");
+    const subscriptionFee = parseFloat(player.finalPrice ?? (player.monthlySubscriptionFee || "0"));
     const totalPaid = playerPayments.reduce((sum: number, payment: any) => {
       return sum + parseFloat(payment.amountPaid || "0");
     }, 0);

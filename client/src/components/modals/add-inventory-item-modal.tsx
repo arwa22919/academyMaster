@@ -35,6 +35,7 @@ export default function AddInventoryItemModal({ open, onOpenChange, itemToEdit }
       status: "active",
       condition: "new",
       imageUrl: "",
+      notes: "",
     },
   });
 
@@ -51,6 +52,7 @@ export default function AddInventoryItemModal({ open, onOpenChange, itemToEdit }
         status: itemToEdit?.status || "active",
         condition: itemToEdit?.condition || "new",
         imageUrl: itemToEdit?.imageUrl || "",
+        notes: itemToEdit?.notes || "",
       });
     }
   }, [open, itemToEdit]);
@@ -268,6 +270,25 @@ export default function AddInventoryItemModal({ open, onOpenChange, itemToEdit }
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes / Additional Info (Optional)</FormLabel>
+                  <FormControl>
+                    <textarea
+                      className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Any extra details about this item (supplier, warranty, condition notes, etc.)"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {!isEditing && (
               <p className="text-xs text-muted-foreground bg-muted p-2 rounded">

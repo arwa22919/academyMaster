@@ -722,6 +722,11 @@ export default function Trainers() {
         onOpenChange={(v) => { if (!v) setSalaryTrainer(null); }}
         trainer={salaryTrainer}
         currentMonth={month}
+        onPaid={(payment) => {
+          if (salaryTrainer) {
+            setReceiptPayment({ payment, trainer: salaryTrainer as any, advances: [] });
+          }
+        }}
       />
       <AddAdvanceModal
         open={!!advanceTrainer}

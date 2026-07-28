@@ -62,6 +62,17 @@ import { db } from "./db";
 import { eq, desc, asc, sql, and, gte, lte, lt, ne, count, sum, isNull } from "drizzle-orm";
 
 // ─────────────────────────────────────────────────────────────────
+// Compute the final (discounted) subscription price the player actually owes.
+// finalPrice = price * (1 - discount/100), clamped to >= 0, returned as a 2dp string.
+export function computeFinalPrice(price: string | number | null | undefined, discountPercentage: string | number | null | undefined): string {
+  const base = parseFloat(String(price ?? '0')) || 0;
+  const discount = parseFloat(String(discountPercentage ?? '0')) || 0;
+  const clampedDiscount = Math.min(100, Math.max(0, discount));
+  const final = Math.max(0, base * (1 - clampedDiscount / 100));
+  return final.toFixed(2);
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Allowed refund methods — any other value is rejected at the storage layer
 export const ALLOWED_REFUND_METHODS = [
   'cash', 'bank_transfer', 'card_reversal', 'wallet', 'adjustment'
@@ -331,6 +342,7 @@ export class DatabaseStorage implements IStorage {
       subscriptionEndDate: sub?.endDate || null,
       renewalDate: sub?.endDate || null,
       monthlySubscriptionFee: sub?.price || '0.00',
+      finalPrice: computeFinalPrice(sub?.price || '0.00', player.discountPercentage),
     } as any;
   }
 
@@ -358,6 +370,7 @@ export class DatabaseStorage implements IStorage {
         subscriptionEndDate: sub?.endDate || null,
         renewalDate: sub?.endDate || null,
         monthlySubscriptionFee: sub?.price || '0.00',
+        finalPrice: computeFinalPrice(sub?.price || '0.00', player.discountPercentage),
       } as any;
     });
   }
@@ -388,6 +401,7 @@ export class DatabaseStorage implements IStorage {
           subscriptionEndDate: r.subscription.endDate,
           renewalDate: r.subscription.endDate,
           monthlySubscriptionFee: r.subscription.price,
+          finalPrice: computeFinalPrice(r.subscription.price, r.player.discountPercentage),
         });
       }
     }
@@ -825,6 +839,30 @@ export class DatabaseStorage implements IStorage {
     const id = nanoid();
     const attendanceStatus = (session as any).attendanceStatus;
     const isAttended = attendanceStatus === 'present' || attendanceStatus === 'late';
+
+    // Prevent duplicate attendance: a player may only have one session record per calendar day.
+    // If one already exists, update that record's status instead of inserting a duplicate.
+    const sessionDate = (session as any).sessionDate ? new Date((session as any).sessionDate) : new Date();
+    const [existing] = await db.select().from(sessions)
+      .where(and(
+        eq(sessions.playerId, (session as any).playerId),
+        sql`DATE(${sessions.sessionDate}) = DATE(${sessionDate})`
+      ))
+      .limit(1);
+
+    if (existing) {
+      const updated = await this.updateSession(existing.id, {
+        attendanceStatus: (session as any).attendanceStatus,
+        sessionStatus: (session as any).sessionStatus,
+        scheduledStartTime: (session as any).scheduledStartTime,
+        scheduledEndTime: (session as any).scheduledEndTime,
+        actualStartTime: (session as any).actualStartTime,
+        actualEndTime: (session as any).actualEndTime,
+        instructorName: (session as any).instructorName,
+        notes: (session as any).notes,
+      } as any);
+      return updated!;
+    }
 
     return await db.transaction(async (tx) => {
       if (isAttended) {

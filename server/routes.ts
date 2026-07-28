@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage, ALLOWED_REFUND_METHODS } from "./storage";
 import { insertPlayerSchema, insertPaymentSchema, insertSessionSchema, subscriptions } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -301,20 +301,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const playerData = insertPlayerSchema.partial().parse(updateData);
-      const player = await storage.updatePlayer(req.params.id, playerData);
-      
-      // Also update the active subscription if relevant fields are passed
-      if (req.body.activity || req.body.subscriptionEndDate || req.body.subscriptionDate) {
+      await storage.updatePlayer(req.params.id, playerData);
+
+      // Subscription-related fields (status, sessions allowed, price, activity, dates) live on the
+      // subscriptions table, not the players table, so they must be updated separately. We target the
+      // latest subscription for this player (the same one getPlayer reads from) so edits always persist.
+      const [latestSub] = await db.select().from(subscriptions)
+        .where(eq(subscriptions.playerId, req.params.id))
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1);
+
+      if (latestSub) {
         const updateSubData: any = { updatedAt: new Date() };
         if (req.body.activity) updateSubData.activity = req.body.activity;
         if (req.body.subscriptionDate) updateSubData.startDate = new Date(req.body.subscriptionDate);
         if (req.body.subscriptionEndDate) updateSubData.endDate = new Date(req.body.subscriptionEndDate);
-        
+        if (req.body.subscriptionStatus) updateSubData.status = req.body.subscriptionStatus;
+        if (req.body.totalSessionsAllowed !== undefined && req.body.totalSessionsAllowed !== null && req.body.totalSessionsAllowed !== '') {
+          updateSubData.sessionsAllowed = parseInt(req.body.totalSessionsAllowed);
+        }
+        if (req.body.monthlySubscriptionFee !== undefined && req.body.monthlySubscriptionFee !== null && req.body.monthlySubscriptionFee !== '') {
+          updateSubData.price = String(req.body.monthlySubscriptionFee);
+        }
+
         await db.update(subscriptions)
           .set(updateSubData)
-          .where(and(eq(subscriptions.playerId, req.params.id), eq(subscriptions.status, 'active')));
+          .where(eq(subscriptions.id, latestSub.id));
       }
-      
+
+      // Re-read so the response reflects the updated subscription (status, sessions, finalPrice, etc.)
+      const player = await storage.getPlayer(req.params.id);
+
       if (!player) {
         return res.status(404).json({ message: "Player not found" });
       }
@@ -758,11 +775,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Convert date strings to Date objects before validation
+      const scheduledStartTime = new Date(req.body.scheduledStartTime);
+      const scheduledEndTime = new Date(req.body.scheduledEndTime);
+
+      // Validate that the end time is after the start time
+      if (scheduledEndTime <= scheduledStartTime) {
+        return res.status(400).json({ message: "Session end time must be after the start time." });
+      }
+      if (req.body.actualStartTime && req.body.actualEndTime &&
+          new Date(req.body.actualEndTime) <= new Date(req.body.actualStartTime)) {
+        return res.status(400).json({ message: "Actual end time must be after the actual start time." });
+      }
+
       const sessionData = {
         playerId,
         sessionDate: new Date(req.body.sessionDate),
-        scheduledStartTime: new Date(req.body.scheduledStartTime), 
-        scheduledEndTime: new Date(req.body.scheduledEndTime),
+        scheduledStartTime,
+        scheduledEndTime,
         instructorName: req.body.instructorName || null,
         notes: req.body.notes || null,
         attendanceStatus: req.body.attendanceStatus || 'present',
@@ -866,6 +895,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/sessions/:id", async (req, res) => {
     try {
       const sessionData = insertSessionSchema.partial().parse(req.body);
+
+      // Validate that the end time is after the start time when both are provided
+      if (sessionData.scheduledStartTime && sessionData.scheduledEndTime &&
+          new Date(sessionData.scheduledEndTime as any) <= new Date(sessionData.scheduledStartTime as any)) {
+        return res.status(400).json({ message: "Session end time must be after the start time." });
+      }
+      if (sessionData.actualStartTime && sessionData.actualEndTime &&
+          new Date(sessionData.actualEndTime as any) <= new Date(sessionData.actualStartTime as any)) {
+        return res.status(400).json({ message: "Actual end time must be after the actual start time." });
+      }
+
       const session = await storage.updateSession(req.params.id, sessionData);
       
       if (!session) {

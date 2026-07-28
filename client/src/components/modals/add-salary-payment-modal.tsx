@@ -41,9 +41,10 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   trainer: Trainer | null;
   currentMonth: string; // YYYY-MM
+  onPaid?: (payment: any) => void;
 }
 
-export default function AddSalaryPaymentModal({ open, onOpenChange, trainer, currentMonth }: Props) {
+export default function AddSalaryPaymentModal({ open, onOpenChange, trainer, currentMonth, onPaid }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -100,14 +101,15 @@ export default function AddSalaryPaymentModal({ open, onOpenChange, trainer, cur
       if (paid > remainingPayableBeforeThisPayment + 0.01) {
         throw new Error("Payment exceeds net payable");
       }
-      return await apiRequest("POST", `/api/trainers/${trainer!.id}/salary-payments`, {
+      const res = await apiRequest("POST", `/api/trainers/${trainer!.id}/salary-payments`, {
         amount: parseFloat(amount),
         month,
         notes: notes || null,
         advanceIdsToDeduct: selectedAdvanceIds,
       });
+      return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (payment: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/trainers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trainers", trainer?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/trainers-all-payments"] });
@@ -115,6 +117,8 @@ export default function AddSalaryPaymentModal({ open, onOpenChange, trainer, cur
       queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
       toast({ title: "Salary payment recorded", description: `AED ${amount} for ${trainer?.name}` });
       onOpenChange(false);
+      // Auto-generate the payment receipt so the admin has proof of the transaction
+      if (payment && payment.id) onPaid?.(payment);
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });

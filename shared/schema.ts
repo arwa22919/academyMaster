@@ -398,6 +398,7 @@ export const inventoryItems = mysqlTable("inventory_items", {
   status: mysqlEnum("status", INVENTORY_STATUS_VALUES).notNull().default('active'),
   condition: varchar("item_condition", { length: 20 }).notNull().default('new'),
   imageUrl: text("image_url"),
+  notes: text("notes"),
   createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
   updatedBy: varchar("updated_by", { length: 36 }).references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),

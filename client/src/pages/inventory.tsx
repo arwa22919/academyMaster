@@ -229,6 +229,11 @@ export default function Inventory() {
                                 AED {parseFloat(item.unitPrice as any).toFixed(2)} / unit
                               </p>
                             )}
+                            {(item as any).notes && (
+                              <p className="text-xs text-muted-foreground mt-0.5 italic">
+                                📝 {(item as any).notes}
+                              </p>
+                            )}
                           </div>
 
                           {/* Right: quantity + actions */}
@@ -264,6 +269,11 @@ export default function Inventory() {
                             <TableCell>
                               <div className="font-medium">{item.name}</div>
                               {item.sku && <div className="text-xs text-muted-foreground">SKU: {item.sku}</div>}
+                              {(item as any).notes && (
+                                <div className="text-xs text-muted-foreground italic mt-0.5 max-w-xs truncate" title={(item as any).notes}>
+                                  📝 {(item as any).notes}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell>
                               <span className="capitalize">{item.category}</span>

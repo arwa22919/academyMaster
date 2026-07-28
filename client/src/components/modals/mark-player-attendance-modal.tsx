@@ -46,7 +46,10 @@ const markPlayerAttendanceSchema = z.object({
   actualEndTime: z.string().optional(),
   instructorName: z.string().optional(),
   notes: z.string().optional(),
-});
+}).refine(
+  (data) => !data.actualStartTime || !data.actualEndTime || data.actualEndTime > data.actualStartTime,
+  { message: "End time must be after the start time", path: ["actualEndTime"] }
+);
 
 type MarkPlayerAttendanceForm = z.infer<typeof markPlayerAttendanceSchema>;
 

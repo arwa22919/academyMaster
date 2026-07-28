@@ -371,6 +371,24 @@ export default function AddPlayerModal({ open, onOpenChange }: AddPlayerModalPro
                 />
               </div>
 
+              {/* Final price after discount (auto-calculated) */}
+              {(() => {
+                const fee = parseFloat(form.watch("subscriptionFee") || "0") || 0;
+                const discount = Math.min(100, Math.max(0, parseFloat(form.watch("discountPercentage") || "0") || 0));
+                const finalPrice = Math.max(0, fee * (1 - discount / 100));
+                return (
+                  <div className="mb-6 bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Final Price After Discount</p>
+                      <p className="text-xs text-blue-700">
+                        {discount > 0 ? `AED ${fee.toFixed(2)} − ${discount}% discount` : "No discount applied"}
+                      </p>
+                    </div>
+                    <p className="text-xl font-bold text-academy-blue">AED {finalPrice.toFixed(2)}</p>
+                  </div>
+                );
+              })()}
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h5 className="text-md font-medium text-gray-900 mb-3">Initial Payment (Optional)</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

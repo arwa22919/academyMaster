@@ -37,7 +37,10 @@ const addSessionSchema = z.object({
   scheduledEndTime: z.string().min(1, "End time is required"),
   instructorName: z.string().optional(),
   notes: z.string().optional(),
-});
+}).refine(
+  (data) => !data.scheduledStartTime || !data.scheduledEndTime || data.scheduledEndTime > data.scheduledStartTime,
+  { message: "End time must be after the start time", path: ["scheduledEndTime"] }
+);
 
 type AddSessionForm = z.infer<typeof addSessionSchema>;
 

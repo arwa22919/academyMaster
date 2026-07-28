@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Wallet, Filter, Paperclip } from "lucide-react";
+import { Plus, Wallet, Filter, Paperclip, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -186,6 +186,18 @@ export default function Expenses() {
                             )}
                           </div>
                         </div>
+                        {expense.category !== 'salary' && (
+                          <div className="mt-2 flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              onClick={(e) => { e.stopPropagation(); handleEdit(expense); }}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -202,6 +214,7 @@ export default function Expenses() {
                           <TableHead>Payment</TableHead>
                           <TableHead className="text-center">Receipt</TableHead>
                           <TableHead className="text-right">Amount</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -243,6 +256,20 @@ export default function Expenses() {
                             </TableCell>
                             <TableCell className="text-right font-bold text-red-600">
                               AED {parseFloat(expense.amount as any).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {expense.category === 'salary' ? (
+                                <span className="text-xs text-muted-foreground">Payroll</span>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8"
+                                  onClick={(e) => { e.stopPropagation(); handleEdit(expense); }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

@@ -94,7 +94,7 @@ export default function AddPaymentModal({ open, onOpenChange, selectedPlayerId }
       const totalPaidSoFar = (playerPayments as any)?.reduce((sum: number, payment: any) => 
         sum + parseFloat(payment.amountPaid), 0) || 0;
       
-      const subscriptionFee = parseFloat(selectedPlayer.monthlySubscriptionFee);
+      const subscriptionFee = parseFloat(selectedPlayer.finalPrice ?? selectedPlayer.monthlySubscriptionFee);
       const newPaymentAmount = parseFloat(data.amountPaid);
       const newTotalPaid = totalPaidSoFar + newPaymentAmount;
       const remainingBalance = Math.max(0, subscriptionFee - newTotalPaid);
@@ -140,7 +140,7 @@ export default function AddPaymentModal({ open, onOpenChange, selectedPlayerId }
   // Calculate payment summary for selected player
   const selectedPlayer = (players as any)?.find((p: any) => p.id === watchPlayerId);
   const totalPaidSoFar = (playerPayments as any)?.reduce((sum: number, payment: any) => sum + parseFloat(payment.amountPaid), 0) || 0;
-  const subscriptionFee = selectedPlayer ? parseFloat(selectedPlayer.monthlySubscriptionFee) : 0;
+  const subscriptionFee = selectedPlayer ? parseFloat(selectedPlayer.finalPrice ?? selectedPlayer.monthlySubscriptionFee) : 0;
   const remainingBalance = Math.max(0, subscriptionFee - totalPaidSoFar);
 
   return (

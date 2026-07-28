@@ -516,9 +516,9 @@ export default function ViewPlayerModal({ open, onOpenChange, playerId }: ViewPl
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm font-medium text-gray-900 mb-2">Payment Status</p>
                 {(() => {
-                  const totalPaid = playerData.payments?.reduce((sum: number, payment: any) => 
+                  const totalPaid = playerData.payments?.reduce((sum: number, payment: any) =>
                     sum + parseFloat(payment.amountPaid || "0"), 0) || 0;
-                  const totalDue = parseFloat(playerData.monthlySubscriptionFee || "0");
+                  const totalDue = parseFloat(playerData.finalPrice ?? (playerData.monthlySubscriptionFee || "0"));
                   const remainingBalance = Math.max(0, totalDue - totalPaid);
                   
                   return (
@@ -566,10 +566,20 @@ export default function ViewPlayerModal({ open, onOpenChange, playerId }: ViewPl
                 </p>
               </div>
 
-              {playerData.discountPercentage !== "0" && (
+              <div>
+                <p className="text-sm font-medium text-gray-900">Absences</p>
+                <p className="text-sm text-gray-600">
+                  {(playerData.sessions?.filter((s: any) => s.attendanceStatus === 'absent').length) || 0} time(s)
+                </p>
+              </div>
+
+              {playerData.discountPercentage && parseFloat(playerData.discountPercentage) > 0 && (
                 <div>
                   <p className="text-sm font-medium text-gray-900">Discount</p>
-                  <p className="text-sm text-gray-600">{playerData.discountPercentage}%</p>
+                  <p className="text-sm text-gray-600">
+                    {playerData.discountPercentage}% · Final price: AED{" "}
+                    {parseFloat(playerData.finalPrice ?? (playerData.monthlySubscriptionFee || "0")).toFixed(2)}
+                  </p>
                 </div>
               )}
             </div>
@@ -580,9 +590,9 @@ export default function ViewPlayerModal({ open, onOpenChange, playerId }: ViewPl
               <div className="mt-6">
                 <h3 className="text-lg font-medium text-gray-900 border-b pb-2 mb-3">Payment Summary</h3>
                 {(() => {
-                  const totalPaid = playerData.payments?.reduce((sum: number, payment: any) => 
+                  const totalPaid = playerData.payments?.reduce((sum: number, payment: any) =>
                     sum + parseFloat(payment.amountPaid || 0), 0) || 0;
-                  const subscriptionFee = parseFloat(playerData.monthlySubscriptionFee || 0);
+                  const subscriptionFee = parseFloat(playerData.finalPrice ?? (playerData.monthlySubscriptionFee || 0));
                   const remainingBalance = subscriptionFee - totalPaid;
 
                   return (

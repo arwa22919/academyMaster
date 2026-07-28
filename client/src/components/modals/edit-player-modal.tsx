@@ -67,6 +67,15 @@ const renewalSchema = z.object({
 type EditPlayerForm = z.infer<typeof editPlayerSchema>;
 type RenewalForm = z.infer<typeof renewalSchema>;
 
+// Normalize any stored date value (ISO string, 'YYYY-MM-DD', or Date) to the
+// 'YYYY-MM-DD' format an <input type="date"> requires.
+function toDateInputValue(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
+}
+
 interface EditPlayerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -127,7 +136,7 @@ export default function EditPlayerModal({ open, onOpenChange, player, defaultTab
     if (player && open) {
       form.reset({
         fullName: player.fullName || "",
-        dateOfBirth: player.dateOfBirth || "",
+        dateOfBirth: toDateInputValue(player.dateOfBirth),
         phoneNumber: player.phoneNumber || "",
         email: player.email || "",
         activity: player.activity || "",
@@ -228,6 +237,9 @@ export default function EditPlayerModal({ open, onOpenChange, player, defaultTab
   };
 
   const watchedSubscriptionStatus = form.watch("subscriptionStatus");
+  const watchedFee = parseFloat(form.watch("monthlySubscriptionFee") || "0") || 0;
+  const watchedDiscount = Math.min(100, Math.max(0, parseFloat(form.watch("discountPercentage") || "0") || 0));
+  const finalPrice = Math.max(0, watchedFee * (1 - watchedDiscount / 100));
 
   if (!player) return null;
 
@@ -523,19 +535,32 @@ export default function EditPlayerModal({ open, onOpenChange, player, defaultTab
                     <FormItem>
                       <FormLabel>Discount (%)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
+                        <Input
+                          type="number"
+                          step="0.01"
                           min="0"
                           max="100"
-                          placeholder="0" 
-                          {...field} 
+                          placeholder="0"
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </div>
+
+              {/* Final price after discount (auto-calculated) */}
+              <div className="mt-4 bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-900">Final Price After Discount</p>
+                  <p className="text-xs text-blue-700">
+                    {watchedDiscount > 0
+                      ? `AED ${watchedFee.toFixed(2)} − ${watchedDiscount}% discount`
+                      : "No discount applied"}
+                  </p>
+                </div>
+                <p className="text-xl font-bold text-academy-blue">AED {finalPrice.toFixed(2)}</p>
               </div>
             </div>
 
