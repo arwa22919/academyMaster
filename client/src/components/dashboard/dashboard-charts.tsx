@@ -23,16 +23,27 @@ function monthLabel(month: string) {
   return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
+function ChartError() {
+  return (
+    <div className="h-[200px] flex flex-col items-center justify-center text-center text-sm text-red-500 px-4">
+      <span className="font-medium">Couldn't load this chart</span>
+      <span className="text-xs text-red-400 mt-1">
+        The server returned an error. Check the browser console / server logs (often a missing DB column — run the migration).
+      </span>
+    </div>
+  );
+}
+
 export default function DashboardCharts() {
-  const { data: expenseTrends, isLoading: loadingTrends } = useQuery<Array<{ month: string; total: string }>>({
+  const { data: expenseTrends, isLoading: loadingTrends, isError: errorTrends } = useQuery<Array<{ month: string; total: string }>>({
     queryKey: ["/api/dashboard/expense-trends"],
   });
 
-  const { data: expenseCategories, isLoading: loadingCategories } = useQuery<Array<{ category: string; total: string }>>({
+  const { data: expenseCategories, isLoading: loadingCategories, isError: errorCategories } = useQuery<Array<{ category: string; total: string }>>({
     queryKey: ["/api/dashboard/expense-categories"],
   });
 
-  const { data: inventoryMovements, isLoading: loadingMovements } = useQuery<Array<{ month: string; stockIn: number; stockOut: number; adjustment: number }>>({
+  const { data: inventoryMovements, isLoading: loadingMovements, isError: errorMovements } = useQuery<Array<{ month: string; stockIn: number; stockOut: number; adjustment: number }>>({
     queryKey: ["/api/dashboard/inventory-movements"],
   });
 
@@ -70,6 +81,8 @@ export default function DashboardCharts() {
           <CardContent>
             {loadingTrends ? (
               <Skeleton className="h-[200px] w-full" />
+            ) : errorTrends ? (
+              <ChartError />
             ) : trendData.length === 0 ? (
               <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
                 No expense data available yet
@@ -106,6 +119,8 @@ export default function DashboardCharts() {
           <CardContent>
             {loadingCategories ? (
               <Skeleton className="h-[200px] w-full" />
+            ) : errorCategories ? (
+              <ChartError />
             ) : categoryData.length === 0 ? (
               <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
                 No expenses this month
@@ -157,6 +172,8 @@ export default function DashboardCharts() {
           <CardContent>
             {loadingMovements ? (
               <Skeleton className="h-[200px] w-full" />
+            ) : errorMovements ? (
+              <ChartError />
             ) : movementData.length === 0 ? (
               <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
                 No inventory transactions yet
