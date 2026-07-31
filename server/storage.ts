@@ -1037,10 +1037,16 @@ export class DatabaseStorage implements IStorage {
     // Excluded: deducted advances (status-only change, no new cash), CarryForward, NetPayable.
 
     // (1) Monthly trainer cash payments (amount = cash only, per our payroll logic)
+    //     Cash-basis: recognized when the cash actually left (createdAt = payment date),
+    //     NOT by the payroll `month` period. Paying August's salary on 28 Jul is a JULY
+    //     cash expense. This matches the expenses list and every other cash-flow line here.
     const monthlyTrainerCashResult = await db
       .select({ total: sql<string>`COALESCE(CAST(SUM(${trainerSalaryPayments.amount}) AS CHAR), '0')` })
       .from(trainerSalaryPayments)
-      .where(eq(trainerSalaryPayments.month, currentMonthStr));
+      .where(and(
+        gte(trainerSalaryPayments.createdAt, monthStart),
+        lt(trainerSalaryPayments.createdAt, monthEnd)
+      ));
     const monthlyTrainerCashPayments = monthlyTrainerCashResult[0].total || '0';
 
     // (2) Advances CREATED this month — cash left the academy when the advance was issued
@@ -1098,10 +1104,12 @@ export class DatabaseStorage implements IStorage {
     const annualIncomeNum = annualPlayerRevenue + annualAdvanceRepayments - annualRefunds;
 
     // Annual Expenses: trainer cash payments YTD + advances created YTD
+    //     Cash-basis: recognized by actual payment date (createdAt), consistent with the
+    //     monthly figure above and the rest of the cash-flow calc.
     const annualTrainerCashResult = await db
       .select({ total: sql<string>`COALESCE(CAST(SUM(${trainerSalaryPayments.amount}) AS CHAR), '0')` })
       .from(trainerSalaryPayments)
-      .where(sql`${trainerSalaryPayments.month} LIKE ${currentYear + '-%'}`);
+      .where(gte(trainerSalaryPayments.createdAt, yearStart));
     const annualTrainerCash = parseFloat(annualTrainerCashResult[0].total || '0');
 
     const annualAdvancesCreatedResult = await db
