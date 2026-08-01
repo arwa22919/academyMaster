@@ -210,7 +210,11 @@ export default function AddExpenseModal({ open, onOpenChange, expenseToEdit }: A
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {EXPENSE_CATEGORY_VALUES.map((category) => (
+                        {/* 'salary' is intentionally excluded: trainer salaries are recorded
+                            through Payroll (trainer salary payments), not as manual expenses.
+                            Allowing a manual 'salary' expense double-counts/mismatches the
+                            dashboard vs. the Expenses page. */}
+                        {EXPENSE_CATEGORY_VALUES.filter((category) => category !== 'salary').map((category) => (
                           <SelectItem key={category} value={category}>
                             {category.charAt(0).toUpperCase() + category.slice(1)}
                           </SelectItem>

@@ -91,7 +91,9 @@ export default function PlayerAttendanceSystem() {
         actualStartTime: actualStartTime.toISOString(),
         actualEndTime: actualEndTime ? actualEndTime.toISOString() : null,
         attendanceStatus: data.attendanceStatus,
-        sessionStatus: data.attendanceStatus === 'present' ? 'attended' : 'missed',
+        // 'present' and 'late' both consume a session → 'attended'; 'absent'/'excused' → 'missed'.
+        // (Backend re-derives this authoritatively too — see createSession.)
+        sessionStatus: (data.attendanceStatus === 'present' || data.attendanceStatus === 'late') ? 'attended' : 'missed',
         instructorName: data.instructorName || null,
         notes: data.notes || null,
       };

@@ -840,6 +840,15 @@ export class DatabaseStorage implements IStorage {
     const attendanceStatus = (session as any).attendanceStatus;
     const isAttended = attendanceStatus === 'present' || attendanceStatus === 'late';
 
+    // Single source of truth for sessionStatus: derive it from attendance instead of
+    // trusting the client. 'present' AND 'late' both mean the player attended (and a
+    // session is consumed), so both map to 'attended'; 'absent'/'excused' map to 'missed'.
+    // Scheduling a future session (sessionStatus 'scheduled') or cancelling it is preserved.
+    const incomingSessionStatus = (session as any).sessionStatus;
+    if (incomingSessionStatus !== 'scheduled' && incomingSessionStatus !== 'cancelled') {
+      (session as any).sessionStatus = isAttended ? 'attended' : 'missed';
+    }
+
     // Prevent duplicate attendance: a player may only have one session record per calendar day.
     // If one already exists, update that record's status instead of inserting a duplicate.
     const sessionDate = (session as any).sessionDate ? new Date((session as any).sessionDate) : new Date();
@@ -1060,14 +1069,20 @@ export class DatabaseStorage implements IStorage {
       ));
     const monthlyAdvancesCreated = monthlyAdvancesCreatedResult[0].total || '0';
 
-    // (3) Monthly academy expenses (rent, utilities, etc.) — exclude soft-deleted
+    // (3) Monthly academy expenses (rent, utilities, etc.) — exclude soft-deleted.
+    //     Exclude category='salary': trainer salary cash is already counted via
+    //     monthlyTrainerCashPayments (payroll). Counting salary-category expense rows
+    //     here too would (a) double-count salary and (b) disagree with the Expenses page,
+    //     which also excludes category='salary' (see getExpenses). This is the source of
+    //     the dashboard-vs-expenses discrepancy.
     const monthlyAcademyExpensesResult = await db
       .select({ total: sql<string>`COALESCE(CAST(SUM(${expenses.amount}) AS CHAR), '0')` })
       .from(expenses)
       .where(and(
         gte(expenses.date, monthStart),
         lt(expenses.date, monthEnd),
-        isNull(expenses.deletedAt)
+        isNull(expenses.deletedAt),
+        ne(expenses.category, 'salary' as any)
       ));
     const monthlyAcademyExpenses = monthlyAcademyExpensesResult[0].total || '0';
 
@@ -1117,12 +1132,15 @@ export class DatabaseStorage implements IStorage {
       .from(trainerAdvances)
       .where(gte(trainerAdvances.createdAt, yearStart));
     const annualAdvancesCreated = parseFloat(annualAdvancesCreatedResult[0].total || '0');
+    // Exclude category='salary' — salary cash is counted via annualTrainerCash (payroll).
+    // Keeps the annual figure consistent with the Expenses page and avoids double-counting.
     const annualAcademyExpensesResult = await db
       .select({ total: sql<string>`COALESCE(CAST(SUM(${expenses.amount}) AS CHAR), '0')` })
       .from(expenses)
       .where(and(
         gte(expenses.date, yearStart),
-        isNull(expenses.deletedAt)
+        isNull(expenses.deletedAt),
+        ne(expenses.category, 'salary' as any)
       ));
     const annualAcademyExpenses = parseFloat(annualAcademyExpensesResult[0].total || '0');
 
@@ -1144,25 +1162,60 @@ export class DatabaseStorage implements IStorage {
     const totalBonuses = bonusesResult[0].total || '0';
 
     // Outstanding Salaries = sum of positive NetPayable across all trainers this month
-    // N+1 Query Fixed: 4 queries instead of N*4 queries
-    const allSalaries = await db.select({ trainerId: trainers.id, salary: trainers.baseSalary }).from(trainers);
-    const allBonusesRaw = await db.select({ trainerId: trainerBonuses.trainerId, total: sql<string>`COALESCE(SUM(${trainerBonuses.amount}), 0)` }).from(trainerBonuses).where(eq(trainerBonuses.month, currentMonthStr)).groupBy(trainerBonuses.trainerId);
-    const allAdvancesRaw = await db.select({ trainerId: trainerAdvances.trainerId, total: sql<string>`COALESCE(SUM(${trainerAdvances.amount}), 0)` }).from(trainerAdvances).where(eq(trainerAdvances.status, 'pending')).groupBy(trainerAdvances.trainerId);
-    const allPaymentsRaw = await db.select({ trainerId: trainerSalaryPayments.trainerId, total: sql<string>`COALESCE(SUM(${trainerSalaryPayments.amount}), 0)` }).from(trainerSalaryPayments).where(eq(trainerSalaryPayments.month, currentMonthStr)).groupBy(trainerSalaryPayments.trainerId);
+    // This MUST match getTrainerLedger()'s NetPayable exactly (single source of truth),
+    // otherwise the dashboard total disagrees with the payroll page.
+    //   NetPayable = BaseSalary + CarryForward + Bonuses(current) - PendingAdvances - CashPaid(current)
+    //   CarryForward = Σ over each past month since the trainer was created of
+    //                  (BaseSalary + bonuses(m) - cashPaid(m))   [cash only, no advances]
+    // Kept to O(1) queries: pull all bonuses/payments once and group in JS (no N+1).
+    const allTrainers = await db.select({ trainerId: trainers.id, salary: trainers.baseSalary, createdAt: trainers.createdAt }).from(trainers);
+    const allBonusRows = await db.select({ trainerId: trainerBonuses.trainerId, month: trainerBonuses.month, amount: trainerBonuses.amount }).from(trainerBonuses);
+    const allPaymentRows = await db.select({ trainerId: trainerSalaryPayments.trainerId, month: trainerSalaryPayments.month, amount: trainerSalaryPayments.amount }).from(trainerSalaryPayments);
+    const allPendingAdvRows = await db.select({ trainerId: trainerAdvances.trainerId, total: sql<string>`COALESCE(SUM(${trainerAdvances.amount}), 0)` }).from(trainerAdvances).where(eq(trainerAdvances.status, 'pending')).groupBy(trainerAdvances.trainerId);
 
-    const bonusMap = Object.fromEntries(allBonusesRaw.map(b => [b.trainerId, parseFloat(b.total || '0')]));
-    const advanceMap = Object.fromEntries(allAdvancesRaw.map(a => [a.trainerId, parseFloat(a.total || '0')]));
-    const paymentMap = Object.fromEntries(allPaymentsRaw.map(p => [p.trainerId, parseFloat(p.total || '0')]));
+    // trainerId -> (month -> summed amount)
+    const bonusByTM = new Map<string, Map<string, number>>();
+    for (const b of allBonusRows) {
+      const m = bonusByTM.get(b.trainerId) ?? new Map<string, number>();
+      m.set(b.month, (m.get(b.month) || 0) + parseFloat(b.amount || '0'));
+      bonusByTM.set(b.trainerId, m);
+    }
+    const paidByTM = new Map<string, Map<string, number>>();
+    for (const p of allPaymentRows) {
+      const m = paidByTM.get(p.trainerId) ?? new Map<string, number>();
+      m.set(p.month, (m.get(p.month) || 0) + parseFloat(p.amount || '0'));
+      paidByTM.set(p.trainerId, m);
+    }
+    const pendingAdvMap = Object.fromEntries(allPendingAdvRows.map(a => [a.trainerId, parseFloat(a.total || '0')]));
+
+    const [curY, curM] = currentMonthStr.split('-').map(Number);
 
     let outstandingSalariesNum = 0;
-    for (const t of allSalaries) {
+    for (const t of allTrainers) {
       const baseSalary = parseFloat(t.salary || '0');
-      const bonus = bonusMap[t.trainerId] || 0;
-      const advance = advanceMap[t.trainerId] || 0;
-      const paid = paymentMap[t.trainerId] || 0;
-      
-      const netPayable = baseSalary + bonus - advance - paid;
-      if (netPayable > 0) outstandingSalariesNum += netPayable;
+      const bonusMonths = bonusByTM.get(t.trainerId);
+      const paidMonths = paidByTM.get(t.trainerId);
+
+      // Walk every month from the trainer's creation month up to (excluding) the current month.
+      let carryForward = 0;
+      const startD = new Date(t.createdAt);
+      let y = startD.getFullYear();
+      let mo = startD.getMonth() + 1;
+      while (y < curY || (y === curY && mo < curM)) {
+        const key = `${y}-${String(mo).padStart(2, '0')}`;
+        const mBonus = bonusMonths?.get(key) || 0;
+        const mPaid = paidMonths?.get(key) || 0;
+        carryForward += (baseSalary + mBonus) - mPaid;
+        mo++;
+        if (mo > 12) { mo = 1; y++; }
+      }
+
+      const currentBonus = bonusMonths?.get(currentMonthStr) || 0;
+      const currentPaid = paidMonths?.get(currentMonthStr) || 0;
+      const pendingAdvance = pendingAdvMap[t.trainerId] || 0;
+
+      const netPayable = (baseSalary + carryForward + currentBonus) - pendingAdvance - currentPaid;
+      if (netPayable > 0.01) outstandingSalariesNum += netPayable;
     }
     const outstandingSalaries = outstandingSalariesNum.toFixed(2);
 
@@ -1862,6 +1915,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createExpense(expense: InsertExpense, reqContext?: { ipAddress?: string; userAgent?: string }): Promise<Expense> {
+    // Salary is tracked via Payroll (trainer_salary_payments), never as a manual expense.
+    // A manual 'salary' expense row is invisible on the Expenses page (which sources salary
+    // from payroll) yet was counted on the dashboard — the exact cause of the mismatch.
+    if ((expense as any).category === 'salary') {
+      throw new Error("Salary expenses must be recorded through Payroll, not as a manual expense.");
+    }
     const id = nanoid();
     await db.insert(expenses).values({ ...expense, id } as any);
     const [created] = await db.select().from(expenses).where(eq(expenses.id, id));
