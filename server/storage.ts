@@ -838,12 +838,16 @@ export class DatabaseStorage implements IStorage {
   async createSession(session: InsertSession): Promise<Session> {
     const id = nanoid();
     const attendanceStatus = (session as any).attendanceStatus;
+    // 'present' and 'late' mean the player actually attended → used for the 'attended' label.
     const isAttended = attendanceStatus === 'present' || attendanceStatus === 'late';
+    // A session slot is consumed for every status EXCEPT 'excused'. present, late AND absent
+    // all deduct one session from the player's balance (a no-show still burns the booked slot);
+    // only an excused absence is forgiven and leaves the balance untouched.
+    const consumesSession = attendanceStatus !== 'excused';
 
     // Single source of truth for sessionStatus: derive it from attendance instead of
-    // trusting the client. 'present' AND 'late' both mean the player attended (and a
-    // session is consumed), so both map to 'attended'; 'absent'/'excused' map to 'missed'.
-    // Scheduling a future session (sessionStatus 'scheduled') or cancelling it is preserved.
+    // trusting the client. 'present' AND 'late' map to 'attended'; 'absent'/'excused'
+    // map to 'missed'. Scheduling a future session ('scheduled') or cancelling it is preserved.
     const incomingSessionStatus = (session as any).sessionStatus;
     if (incomingSessionStatus !== 'scheduled' && incomingSessionStatus !== 'cancelled') {
       (session as any).sessionStatus = isAttended ? 'attended' : 'missed';
@@ -874,14 +878,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     return await db.transaction(async (tx) => {
-      if (isAttended) {
+      if (consumesSession) {
         const [result] = await tx.update(subscriptions)
           .set({ sessionsUsed: sql`${subscriptions.sessionsUsed} + 1`, updatedAt: new Date() })
           .where(and(
             eq(subscriptions.id, (session as any).subscriptionId),
             sql`${subscriptions.sessionsUsed} < ${subscriptions.sessionsAllowed}`
           ));
-        
+
         if (result.affectedRows === 0) {
           throw new Error("Maximum sessions exceeded or subscription not found");
         }
@@ -900,11 +904,14 @@ export class DatabaseStorage implements IStorage {
       
       const oldStatus = existingSession.attendanceStatus;
       const newStatus = sessionUpdate.attendanceStatus !== undefined ? sessionUpdate.attendanceStatus : oldStatus;
-      
-      const wasAttended = oldStatus === 'present' || oldStatus === 'late';
-      const isAttended = newStatus === 'present' || newStatus === 'late';
-      
-      if (!wasAttended && isAttended) {
+
+      // A session slot is consumed for every status except 'excused' (present, late and
+      // absent all deduct; excused does not). Only adjust sessionsUsed when the consuming
+      // state actually flips — e.g. absent → excused frees a slot, excused → absent takes one.
+      const wasConsuming = oldStatus !== 'excused';
+      const isConsuming = newStatus !== 'excused';
+
+      if (!wasConsuming && isConsuming) {
         const [result] = await tx.update(subscriptions)
           .set({ sessionsUsed: sql`${subscriptions.sessionsUsed} + 1`, updatedAt: new Date() })
           .where(and(
@@ -914,7 +921,7 @@ export class DatabaseStorage implements IStorage {
         if (result.affectedRows === 0) {
           throw new Error("Maximum sessions exceeded or subscription not found");
         }
-      } else if (wasAttended && !isAttended) {
+      } else if (wasConsuming && !isConsuming) {
         await tx.update(subscriptions)
           .set({ sessionsUsed: sql`GREATEST(0, ${subscriptions.sessionsUsed} - 1)`, updatedAt: new Date() })
           .where(eq(subscriptions.id, existingSession.subscriptionId));
