@@ -567,10 +567,34 @@ export default function ViewPlayerModal({ open, onOpenChange, playerId }: ViewPl
               </div>
 
               <div>
-                <p className="text-sm font-medium text-gray-900">Absences</p>
-                <p className="text-sm text-gray-600">
-                  {(playerData.sessions?.filter((s: any) => s.attendanceStatus === 'absent').length) || 0} time(s)
-                </p>
+                <p className="text-sm font-medium text-gray-900">Attendance</p>
+                {(() => {
+                  // Calculate attendance breakdown directly from the session records
+                  // (source of truth) so both absences AND lateness are reflected.
+                  const sessionList: any[] = Array.isArray(playerData.sessions) ? playerData.sessions : [];
+                  const presentCount = sessionList.filter((s: any) => s.attendanceStatus === 'present').length;
+                  const lateCount = sessionList.filter((s: any) => s.attendanceStatus === 'late').length;
+                  const absentCount = sessionList.filter((s: any) => s.attendanceStatus === 'absent').length;
+                  const excusedCount = sessionList.filter((s: any) => s.attendanceStatus === 'excused').length;
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
+                        Present: {presentCount}
+                      </Badge>
+                      <Badge variant="outline" className="text-yellow-700 border-yellow-200 bg-yellow-50">
+                        Late: {lateCount}
+                      </Badge>
+                      <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                        Absent: {absentCount}
+                      </Badge>
+                      {excusedCount > 0 && (
+                        <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                          Excused: {excusedCount}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {playerData.discountPercentage && parseFloat(playerData.discountPercentage) > 0 && (

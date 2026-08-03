@@ -150,7 +150,7 @@ export default function PlayerAttendanceSystem() {
   return (
     <div className="space-y-6">
       {/* Today's Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
         <Card>
           <CardContent className="p-3 md:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -191,10 +191,23 @@ export default function PlayerAttendanceSystem() {
           <CardContent className="p-3 md:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="mb-2 sm:mb-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Late Today</p>
+                <p className="text-xl md:text-2xl font-bold text-yellow-600">{todayStats.late}</p>
+              </div>
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-2 sm:mb-0">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Rate</p>
                 <p className="text-xl md:text-2xl font-bold text-academy-blue">
-                  {todayStats.totalSessions > 0 
-                    ? Math.round((todayStats.present / todayStats.totalSessions) * 100)
+                  {/* Attendance rate: present AND late both count as attended (both consume a session). */}
+                  {todayStats.totalSessions > 0
+                    ? Math.round(((todayStats.present + todayStats.late) / todayStats.totalSessions) * 100)
                     : 0}%
                 </p>
               </div>
