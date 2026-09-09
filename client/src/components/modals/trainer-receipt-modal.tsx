@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { generateTrainerReceipt } from "@/lib/pdf-generator";
+import { printElementById } from "@/lib/print";
 
 interface TrainerReceiptModalProps {
   open: boolean;
@@ -25,7 +26,10 @@ export default function TrainerReceiptModal({
 }: TrainerReceiptModalProps) {
   
   const handlePrint = () => {
-    window.print();
+    printElementById("receipt-content", {
+      title: `Trainer Receipt ${payment?.month ?? ""}`.trim(),
+      styles: "body { max-width: 480px; margin: 0 auto; }",
+    });
   };
 
   const handleDownloadPDF = () => {

@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { generateReceipt } from "@/lib/pdf-generator";
+import { printElementById } from "@/lib/print";
 import type { Player, Payment } from "@shared/schema";
 import { format } from "date-fns";
 import { PAYMENT_METHODS } from "@/lib/constants";
@@ -45,7 +46,10 @@ export default function ReceiptModal({
   const netAmount = parseFloat((payment as any)?.amountPaid ?? "0") - totalRefunded;
 
   const handlePrint = () => {
-    window.print();
+    printElementById("receipt-content", {
+      title: `Receipt ${(payment as any)?.receiptNumber ?? ""}`.trim(),
+      styles: "body { max-width: 480px; margin: 0 auto; }",
+    });
   };
 
   const handleDownloadPDF = () => {

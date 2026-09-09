@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { User, Calendar, Phone, Mail, Activity, DollarSign, Printer, History, RotateCcw } from "lucide-react";
 import DocumentManager from "@/components/ui/document-manager";
 import { LOGO_BASE64 } from "@/lib/logo-base64";
+import { printElementById } from "@/lib/print";
 import RefundPaymentModal from "@/components/modals/refund-payment-modal";
 
 // Payment Section Component
@@ -238,107 +239,31 @@ export default function ViewPlayerModal({ open, onOpenChange, playerId }: ViewPl
   const age = playerData?.dateOfBirth ? new Date().getFullYear() - new Date(playerData.dateOfBirth).getFullYear() : 0;
 
   const handlePrint = () => {
-    const printContent = document.getElementById('player-details-content');
-    if (printContent) {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Player Details - ${playerData.fullName}</title>
-              <style>
-                body { 
-                  font-family: Arial, sans-serif; 
-                  line-height: 1.6; 
-                  color: #333; 
-                  max-width: 800px; 
-                  margin: 0 auto; 
-                  padding: 20px; 
-                }
-                .print-header {
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 16px;
-                  border-bottom: 3px solid #2563EB;
-                  padding-bottom: 18px;
-                  margin-bottom: 28px;
-                }
-                .print-header img {
-                  width: 72px;
-                  height: 72px;
-                  object-fit: contain;
-                  border-radius: 8px;
-                }
-                .print-header-text h1 {
-                  color: #2563EB;
-                  font-size: 22px;
-                  font-weight: bold;
-                  margin: 0;
-                }
-                .print-header-text p {
-                  color: #DC2626;
-                  font-size: 13px;
-                  margin: 2px 0 0;
-                }
-                .print-header-text small {
-                  color: #6B7280;
-                  font-size: 11px;
-                }
-                .section { 
-                  margin-bottom: 25px; 
-                  border: 1px solid #E5E7EB; 
-                  padding: 15px; 
-                  border-radius: 8px; 
-                }
-                .section-title { 
-                  font-size: 18px; 
-                  font-weight: bold; 
-                  color: #1F2937; 
-                  border-bottom: 1px solid #E5E7EB; 
-                  padding-bottom: 8px; 
-                  margin-bottom: 15px; 
-                }
-                .info-item { margin-bottom: 8px; }
-                .label { font-weight: bold; color: #374151; }
-                .value { color: #6B7280; }
-                .badge { 
-                  background: #F3F4F6; 
-                  padding: 4px 8px; 
-                  border-radius: 4px; 
-                  font-size: 12px; 
-                  display: inline-block; 
-                }
-                .payment-summary { 
-                  background: #F9FAFB; 
-                  padding: 15px; 
-                  border-radius: 6px; 
-                  margin-top: 10px; 
-                }
-                @media print {
-                  body { margin: 0; }
-                  .no-print { display: none; }
-                }
-              </style>
-            </head>
-            <body>
-              <div class="print-header">
-                <img src="${LOGO_BASE64}" alt="E1 Sport Champions Academy" />
-                <div class="print-header-text">
-                  <h1>E1 Sport</h1>
-                  <p>Champions Academy</p>
-                  <small>Player Profile Report &mdash; ${format(new Date(), 'MMMM dd, yyyy')}</small>
-                </div>
-              </div>
-              ${printContent.outerHTML}
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-      }
-    }
+    const headerHtml = `
+      <div class="print-header">
+        <img src="${LOGO_BASE64}" alt="E1 Sport Champions Academy" />
+        <div class="print-header-text">
+          <h1>E1 Sport</h1>
+          <p>Champions Academy</p>
+          <small>Player Profile Report &mdash; ${format(new Date(), 'MMMM dd, yyyy')}</small>
+        </div>
+      </div>`;
+
+    printElementById('player-details-content', {
+      title: `Player Details - ${playerData.fullName}`,
+      headerHtml,
+      styles: `
+        body { max-width: 800px; margin: 0 auto; }
+        .print-header {
+          display: flex; align-items: center; justify-content: center; gap: 16px;
+          border-bottom: 3px solid #2563EB; padding-bottom: 18px; margin-bottom: 28px;
+        }
+        .print-header img { width: 72px; height: 72px; object-fit: contain; border-radius: 8px; }
+        .print-header-text h1 { color: #2563EB; font-size: 22px; font-weight: bold; margin: 0; }
+        .print-header-text p { color: #DC2626; font-size: 13px; margin: 2px 0 0; }
+        .print-header-text small { color: #6B7280; font-size: 11px; }
+      `,
+    });
   };
 
   return (
