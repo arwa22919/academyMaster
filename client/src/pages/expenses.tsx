@@ -118,7 +118,7 @@ export default function Expenses() {
                         <SelectItem value="all">All Categories</SelectItem>
                         {EXPENSE_CATEGORY_VALUES.map(cat => (
                           <SelectItem key={cat} value={cat}>
-                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                            {cat.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -156,7 +156,7 @@ export default function Expenses() {
                                 {format(new Date(expense.date), "dd MMM yyyy")}
                               </span>
                               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground capitalize">
-                                {expense.category}
+                                {expense.category.replace(/_/g, ' ')}
                               </span>
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBadgeClass(expense.status || 'pending')}`}>
                                 {expense.status || 'pending'}
@@ -229,7 +229,7 @@ export default function Expenses() {
                             </TableCell>
                             <TableCell>
                               <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-secondary text-secondary-foreground capitalize">
-                                {expense.category}
+                                {expense.category.replace(/_/g, ' ')}
                               </span>
                             </TableCell>
                             <TableCell>{expense.description || "-"}</TableCell>

@@ -216,7 +216,7 @@ export default function AddExpenseModal({ open, onOpenChange, expenseToEdit }: A
                             dashboard vs. the Expenses page. */}
                         {EXPENSE_CATEGORY_VALUES.filter((category) => category !== 'salary').map((category) => (
                           <SelectItem key={category} value={category}>
-                            {category.charAt(0).toUpperCase() + category.slice(1)}
+                            {category.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                           </SelectItem>
                         ))}
                       </SelectContent>

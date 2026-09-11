@@ -1,7 +1,8 @@
 import { ReactNode, useState } from "react";
 import { useLocation } from "wouter";
 import Sidebar from "./sidebar";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -53,6 +54,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             />
             <span className="font-bold text-gray-900 text-sm">E1 Sport Academy</span>
           </div>
+          <ThemeToggle className="ml-auto h-9 w-9" />
         </div>
 
         {children}

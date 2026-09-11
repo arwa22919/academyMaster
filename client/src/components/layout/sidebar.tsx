@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
@@ -94,6 +95,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">{user?.username || "Admin"}</p>
           </div>
+          <ThemeToggle className="h-8 w-8" />
         </div>
         <Button 
           variant="outline" 

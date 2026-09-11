@@ -34,7 +34,9 @@ export type PaymentStatusValue = typeof PAYMENT_STATUS_ALL[number];
 
 // Enum Values
 export const ACTIVITY_VALUES = [
-  'karate', 'kickboxing', 'football', 'swimming', 'zumba', 'aerobics', 'crossfit', 'gymnastics', 'quran_memorization', 'kindergarten'
+  'karate', 'kickboxing', 'football', 'swimming', 'zumba', 'aerobics', 'crossfit', 'gymnastics', 'quran_memorization', 'kindergarten',
+  // Added categories (gymnastics already existed above and is intentionally not repeated)
+  'muay_thai', 'special_needs', 'aqua_aerobics', 'basketball', 'volleyball'
 ] as const;
 
 export const PAYMENT_METHOD_VALUES = [
@@ -59,7 +61,9 @@ export const ATTENDANCE_STATUS_VALUES = [
 ] as const;
 
 export const EXPENSE_CATEGORY_VALUES = [
-  'rent', 'utilities', 'maintenance', 'equipment', 'salary', 'marketing', 'transportation', 'other'
+  'rent', 'utilities', 'maintenance', 'equipment', 'salary', 'marketing', 'transportation', 'other',
+  // Added categories
+  'water', 'electricity', 'license_fees', 'residency_fees', 'sewage'
 ] as const;
 
 export const INVENTORY_STATUS_VALUES = [
@@ -656,4 +660,9 @@ export const ACTIVITY_DISPLAY = {
   gymnastics: { emoji: '👯‍♀️', label: 'Gymnastics' },
   quran_memorization: { emoji: '📖', label: 'Quran Memorization' },
   kindergarten: { emoji: '🎒', label: 'Kindergarten' },
+  muay_thai: { emoji: '🥊', label: 'Muay Thai Boxing' },
+  special_needs: { emoji: '🧩', label: 'Special Needs' },
+  aqua_aerobics: { emoji: '🌊', label: 'Aqua Aerobics' },
+  basketball: { emoji: '🏀', label: 'Basketball' },
+  volleyball: { emoji: '🏐', label: 'Volleyball' },
 } as const;

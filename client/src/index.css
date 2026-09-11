@@ -36,9 +36,10 @@
   --foreground: hsl(0, 0%, 98%);
   --muted: hsl(240, 3.7%, 15.9%);
   --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
+  /* Cards/popovers sit slightly above the page background for visible elevation. */
+  --popover: hsl(240, 6%, 10%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
+  --card: hsl(240, 6%, 10%);
   --card-foreground: hsl(0, 0%, 98%);
   --border: hsl(240, 3.7%, 15.9%);
   --input: hsl(240, 3.7%, 15.9%);
@@ -114,16 +115,51 @@
   .no-print {
     display: none !important;
   }
-  
+
   .print-only {
     display: block !important;
   }
-  
+
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Dark-mode compatibility layer.
+
+   Most pages were written with hardcoded neutral utilities (bg-white,
+   bg-gray-50, text-gray-900, border-gray-200, …) and no `dark:` variants.
+   Rather than touch ~300 call sites, we remap ONLY those neutral chrome
+   utilities under `.dark` to the dark palette. Colored utilities
+   (blue/red/green/…) are intentionally left untouched so badges/accents keep
+   their meaning, and shadcn primitives already use semantic tokens.
+
+   These rules are unlayered, so per CSS cascade layering they take priority
+   over Tailwind's layered utilities — no !important needed. No existing
+   `dark:` variants exist in page code, so nothing conflicts.
+   ─────────────────────────────────────────────────────────────────────────── */
+.dark .bg-white { background-color: var(--card); }
+.dark .bg-gray-50 { background-color: var(--background); }
+.dark .bg-gray-100 { background-color: var(--muted); }
+.dark .bg-slate-50 { background-color: var(--background); }
+
+.dark .text-gray-900 { color: var(--foreground); }
+.dark .text-gray-800 { color: hsl(0, 0%, 92%); }
+.dark .text-gray-700 { color: hsl(0, 0%, 85%); }
+.dark .text-gray-600 { color: var(--muted-foreground); }
+.dark .text-gray-500 { color: var(--muted-foreground); }
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 { border-color: var(--border); }
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover { background-color: var(--muted); }
+
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
 
 /* Modern UI Utilities */
 .glass {
