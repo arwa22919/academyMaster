@@ -161,6 +161,38 @@
 .dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
 .dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
 
+/* Translucent white surfaces (glass headers, chart cards using bg-white/NN). */
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/80 { background-color: hsla(240, 6%, 10%, 0.9); }
+.dark .bg-white\/70,
+.dark .bg-white\/60,
+.dark .bg-white\/50,
+.dark .bg-white\/40 { background-color: hsla(240, 6%, 10%, 0.6); }
+
+/* Light tinted panels (…-50 surfaces) → subtle dark tint of the same hue.
+   Badges/accents use the stronger …-100/-800 pairs and are left untouched. */
+.dark .bg-blue-50 { background-color: hsl(213, 38%, 14%); }
+.dark .bg-indigo-50 { background-color: hsl(239, 40%, 15%); }
+.dark .bg-purple-50 { background-color: hsl(270, 30%, 15%); }
+.dark .bg-emerald-50,
+.dark .bg-green-50 { background-color: hsl(150, 30%, 12%); }
+.dark .bg-amber-50,
+.dark .bg-yellow-50 { background-color: hsl(41, 39%, 13%); }
+.dark .bg-red-50 { background-color: hsl(0, 40%, 15%); }
+.dark .bg-orange-50 { background-color: hsl(25, 44%, 14%); }
+
+/* Light two-stop gradients used as headers/panels (from-slate-50 to-blue-50,
+   from-blue-50 to-blue-100, …) → flatten to a solid dark panel. Exact class
+   selectors, so darker stops like from-blue-500 are unaffected. */
+.dark .from-slate-50,
+.dark .from-blue-50,
+.dark .from-green-50,
+.dark .from-yellow-50 {
+  background-image: none;
+  background-color: var(--muted);
+}
+
 /* Modern UI Utilities */
 .glass {
   background: rgba(255, 255, 255, 0.7);
