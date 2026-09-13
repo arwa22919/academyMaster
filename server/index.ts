@@ -9,7 +9,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Serve uploaded files
-const uploadsPath = path.join(process.cwd(), 'client/public/uploads');
+// In production (Railway), serve from persistent volume; in dev, serve from local public folder
+const uploadsPath = process.env.UPLOAD_DIR || (
+  process.env.NODE_ENV === 'production'
+    ? '/data/uploads'
+    : path.join(process.cwd(), 'client/public/uploads')
+);
 app.use('/uploads', express.static(uploadsPath));
 
 import rateLimit from "express-rate-limit";

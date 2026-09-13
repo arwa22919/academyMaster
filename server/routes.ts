@@ -28,7 +28,12 @@ function validateFileSignature(filePath: string): boolean {
 }
 
 // Configure multer for file uploads
-const uploadDir = path.join(process.cwd(), 'client/public/uploads');
+// In production (Railway), use persistent volume; in dev, use local public folder
+const uploadDir = process.env.UPLOAD_DIR || (
+  process.env.NODE_ENV === 'production'
+    ? '/data/uploads'
+    : path.join(process.cwd(), 'client/public/uploads')
+);
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -450,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up document files
       documents.forEach(doc => {
         try {
-          const filePath = path.join(process.cwd(), 'client/public', doc.filePath);
+          const filePath = path.join(uploadDir, path.basename(doc.filePath));
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
           }
@@ -735,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Try to delete the physical file
       try {
-        const filePath = path.join(process.cwd(), 'client/public', document.filePath);
+        const filePath = path.join(uploadDir, path.basename(document.filePath));
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
