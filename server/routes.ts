@@ -7,45 +7,21 @@ import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { requireRole } from "./auth";
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicId } from "./cloudinary";
 // Rate limiting definitions moved to index.ts
 
-// File signature validation (Magic Bytes)
-function validateFileSignature(filePath: string): boolean {
-  
-  try {
-    const fd = fs.openSync(filePath, 'r');
-    const buffer = Buffer.alloc(4);
-    fs.readSync(fd, buffer, 0, 4, 0);
-    fs.closeSync(fd);
-    const hex = buffer.toString('hex').toUpperCase();
-    // JPEG: FFD8FF, PNG: 89504E47, PDF: 25504446
-    return hex.startsWith('FFD8FF') || hex.startsWith('89504E47') || hex.startsWith('25504446');
-  } catch (err) {
-    return false;
-  }
+// File signature validation (Magic Bytes) — works on Buffer directly
+function validateFileSignatureFromBuffer(buffer: Buffer): boolean {
+  if (!buffer || buffer.length < 4) return false;
+  const hex = buffer.subarray(0, 4).toString('hex').toUpperCase();
+  // JPEG: FFD8FF, PNG: 89504E47, PDF: 25504446
+  return hex.startsWith('FFD8FF') || hex.startsWith('89504E47') || hex.startsWith('25504446');
 }
 
-// Configure multer for file uploads
-// In production (Railway), use persistent volume; in dev, use local public folder
-const uploadDir = process.env.UPLOAD_DIR || (
-  process.env.NODE_ENV === 'production'
-    ? '/data/uploads'
-    : path.join(process.cwd(), 'client/public/uploads')
-);
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
+// Configure multer for file uploads — memory storage (files go to Cloudinary)
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDir,
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
@@ -205,10 +181,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (files?.idDocument) {
         const file = files.idDocument[0];
+        if (!validateFileSignatureFromBuffer(file.buffer)) {
+          return res.status(400).json({ message: "Invalid ID document file signature. File is potentially malicious." });
+        }
+        const uploaded = await uploadToCloudinary(file.buffer, { folder: 'academy-uploads/documents' });
         documents.push({
           documentType: 'id',
           fileName: file.originalname,
-          filePath: `/uploads/${file.filename}`,
+          filePath: uploaded.url,
           fileSize: file.size,
           mimeType: file.mimetype,
         });
@@ -216,10 +196,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (files?.medicalForm) {
         const file = files.medicalForm[0];
+        if (!validateFileSignatureFromBuffer(file.buffer)) {
+          return res.status(400).json({ message: "Invalid medical form file signature. File is potentially malicious." });
+        }
+        const uploaded = await uploadToCloudinary(file.buffer, { folder: 'academy-uploads/documents' });
         documents.push({
           documentType: 'medical_form',
           fileName: file.originalname,
-          filePath: `/uploads/${file.filename}`,
+          filePath: uploaded.url,
           fileSize: file.size,
           mimeType: file.mimetype,
         });
@@ -452,17 +436,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Failed to delete player" });
       }
 
-      // Clean up document files
-      documents.forEach(doc => {
+      // Clean up document files from Cloudinary
+      for (const doc of documents) {
         try {
-          const filePath = path.join(uploadDir, path.basename(doc.filePath));
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+          const publicId = extractPublicId(doc.filePath);
+          if (publicId) {
+            await deleteFromCloudinary(publicId, doc.mimeType?.startsWith('application/pdf') ? 'raw' : 'image');
           }
         } catch (fileError) {
-          console.warn("Could not delete document file:", fileError);
+          console.warn("Could not delete document from Cloudinary:", fileError);
         }
-      });
+      }
 
       res.json({ message: "Player deleted successfully" });
     } catch (error) {
@@ -700,16 +684,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const file = files[0];
-      if (!validateFileSignature(file.path)) {
-         fs.unlinkSync(file.path);
+      if (!validateFileSignatureFromBuffer(file.buffer)) {
          return res.status(400).json({ message: "Invalid file signature. File is potentially malicious." });
       }
+
+      const uploaded = await uploadToCloudinary(file.buffer, { folder: 'academy-uploads/documents' });
 
       const document = await storage.createPlayerDocument({
         playerId,
         documentType,
         fileName: file.originalname,
-        filePath: `/uploads/${file.filename}`,
+        filePath: uploaded.url,
         fileSize: file.size,
         mimeType: file.mimetype,
       });
@@ -738,14 +723,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Failed to delete document from database" });
       }
 
-      // Try to delete the physical file
+      // Try to delete from Cloudinary
       try {
-        const filePath = path.join(uploadDir, path.basename(document.filePath));
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+        const publicId = extractPublicId(document.filePath);
+        if (publicId) {
+          await deleteFromCloudinary(publicId, document.mimeType?.startsWith('application/pdf') ? 'raw' : 'image');
         }
       } catch (fileError) {
-        console.warn("Could not delete physical file:", fileError);
+        console.warn("Could not delete file from Cloudinary:", fileError);
       }
 
       res.json({ message: "Document deleted successfully" });
@@ -1284,11 +1269,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
-      if (!validateFileSignature(file.path)) {
-         fs.unlinkSync(file.path);
+      if (!validateFileSignatureFromBuffer(file.buffer)) {
          return res.status(400).json({ message: "Invalid file signature. File is potentially malicious." });
       }
-      const receiptUrl = `/uploads/${file.filename}`;
+      const uploaded = await uploadToCloudinary(file.buffer, { folder: 'academy-uploads/receipts' });
+      const receiptUrl = uploaded.url;
       const updated = await storage.updateExpense(req.params.id, { receiptUrl } as any);
       if (!updated) {
         return res.status(404).json({ message: "Expense not found" });
@@ -1346,29 +1331,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch inventory movements" });
     }
   });
-
-  // ─── TEMPORARY: Backup download endpoint (REMOVE AFTER USE) ──────────────
-  // Admin-only endpoint to download /tmp/uploads-backup.tar.gz
-  app.get("/api/admin/download-uploads-backup", requireRole(['admin']), (req, res) => {
-    const backupPath = '/tmp/uploads-backup.tar.gz';
-
-    if (!fs.existsSync(backupPath)) {
-      return res.status(404).json({ message: "Backup file not found at /tmp/uploads-backup.tar.gz" });
-    }
-
-    res.setHeader('Content-Type', 'application/gzip');
-    res.setHeader('Content-Disposition', 'attachment; filename="uploads-backup.tar.gz"');
-
-    const fileStream = fs.createReadStream(backupPath);
-    fileStream.pipe(res);
-    fileStream.on('error', (err) => {
-      console.error("Error streaming backup file:", err);
-      if (!res.headersSent) {
-        res.status(500).json({ message: "Failed to stream backup file" });
-      }
-    });
-  });
-  // ─── END TEMPORARY ───────────────────────────────────────────────────────
 
   const httpServer = createServer(app);
 

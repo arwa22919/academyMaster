@@ -2,20 +2,12 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth";
-import path from "path";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Serve uploaded files
-// In production (Railway), serve from persistent volume; in dev, serve from local public folder
-const uploadsPath = process.env.UPLOAD_DIR || (
-  process.env.NODE_ENV === 'production'
-    ? '/data/uploads'
-    : path.join(process.cwd(), 'client/public/uploads')
-);
-app.use('/uploads', express.static(uploadsPath));
+// Uploads are now served directly from Cloudinary CDN — no local static serving needed
 
 import rateLimit from "express-rate-limit";
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, message: "Too many requests" });
