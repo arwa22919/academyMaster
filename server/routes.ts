@@ -1347,6 +1347,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── TEMPORARY: Backup download endpoint (REMOVE AFTER USE) ──────────────
+  // Admin-only endpoint to download /tmp/uploads-backup.tar.gz
+  app.get("/api/admin/download-uploads-backup", requireRole(['admin']), (req, res) => {
+    const backupPath = '/tmp/uploads-backup.tar.gz';
+
+    if (!fs.existsSync(backupPath)) {
+      return res.status(404).json({ message: "Backup file not found at /tmp/uploads-backup.tar.gz" });
+    }
+
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('Content-Disposition', 'attachment; filename="uploads-backup.tar.gz"');
+
+    const fileStream = fs.createReadStream(backupPath);
+    fileStream.pipe(res);
+    fileStream.on('error', (err) => {
+      console.error("Error streaming backup file:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to stream backup file" });
+      }
+    });
+  });
+  // ─── END TEMPORARY ───────────────────────────────────────────────────────
+
   const httpServer = createServer(app);
 
   return httpServer;
