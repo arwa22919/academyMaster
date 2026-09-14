@@ -191,10 +191,10 @@ export default function DocumentManager({
       {typeDocuments.length > 0 && (
         <div className="space-y-2">
           {typeDocuments.map((document) => (
-            <div key={document.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-              <div className="flex items-center space-x-3">
-                <File className="h-5 w-5 text-gray-400" />
-                <div>
+            <div key={document.id} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <File className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {document.fileName}
                   </p>
@@ -203,13 +203,14 @@ export default function DocumentManager({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => handleViewDocument(document)}
                   className="h-8 w-8 p-0"
+                  title="View"
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -219,6 +220,7 @@ export default function DocumentManager({
                   size="sm"
                   onClick={() => handleDownloadDocument(document)}
                   className="h-8 w-8 p-0"
+                  title="Download"
                 >
                   <Download className="h-4 w-4" />
                 </Button>
@@ -228,10 +230,10 @@ export default function DocumentManager({
                     variant="ghost"
                     size="sm"
                     onClick={() => setDeleteDocumentId(document.id)}
-                    className="h-8 px-2 text-red-500 hover:bg-red-50 hover:text-red-700"
+                    className="h-8 w-8 p-0 text-red-500 hover:bg-red-50 hover:text-red-700"
+                    title="Delete"
                   >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
               </div>
